@@ -1,7 +1,6 @@
 package io.libsoft.tessel;
 
 import io.libsoft.tessel.controller.DrawController;
-import io.libsoft.tessel.model.Node;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.Bounds;
@@ -12,16 +11,12 @@ import javafx.stage.Stage;
 public class App extends Application {
 
 
+  private static final String LAYOUT_RESOURCE = "layout.fxml";
   private DrawController controller;
-  private static final String LAYOUT_RESOURCE = "triangulation.fxml";
-
-
 
   public static void main(String[] args) {
 
-
-    Node n = new Node(1,2);
-  launch(args);
+    launch(args);
   }
 
   @Override

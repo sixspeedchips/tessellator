@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-<?import javafx.scene.layout.VBox?>
+<?import io.libsoft.tessel.view.CannyViewer?>
 <?import io.libsoft.tessel.view.ModelViewer?>
-<?import javafx.scene.layout.StackPane?>
-<StackPane xmlns:fx="http://javafx.com/fxml"
+<?import javafx.scene.layout.HBox?>
+<HBox xmlns:fx="http://javafx.com/fxml"
   fx:controller="io.libsoft.tessel.controller.DrawController">
 
   <ModelViewer fx:id="modelViewer"/>
-
-</StackPane>
+  <CannyViewer fx:id="cannyViewer"/>
+</HBox>

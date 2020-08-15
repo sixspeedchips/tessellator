@@ -1,11 +1,15 @@
 package io.libsoft.tessel.model;
 
-import java.util.Collection;
-import java.util.Collections;
+import io.libsoft.tessel.util.Vars;
 import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import lombok.Data;
 
 @Data
@@ -16,61 +20,74 @@ public class Graph {
   private List<Node> nodes = new LinkedList<>();
   private int maxConnections;
   private int minConnections;
+  private ExecutorService executors = Executors.newFixedThreadPool(5);
+  private ScheduledExecutorService es = Executors.newScheduledThreadPool(1);
 
+  private State currentState;
+  private boolean running;
 
   public static Graph randomNodes(int num) {
     Graph graph = new Graph();
     for (int i = 0; i < num; i++) {
-      double x = (random.nextGaussian() * 120) + 300;
-      double y = (random.nextGaussian() * 120) + 300;
-//      double x = random.nextDouble() * BOUNDS;
-//      double y = random.nextDouble() * BOUNDS;
+      double x = (random.nextGaussian() * Vars.instance().getBounds() / 7) + Vars.instance().getBounds() / 2;
+      double y = (random.nextGaussian() * Vars.instance().getBounds() / 7) + Vars.instance().getBounds() / 2;
       graph.getNodes().add(new Node(x, y));
     }
 
     return graph;
   }
 
-  public void link() {
-    maxConnections = 0;
-    for (int k = 0; k < 10; k++) {
+  public void start() {
+//    es.scheduleAtFixedRate(this::update, 0, 16, TimeUnit.MILLISECONDS);
+    es.submit(this::update);
+  }
 
-      for (int i = 0; i < nodes.size(); i++) {
-
-        Node closestNeighbor = null;
-
-        double shortestDistance = Double.POSITIVE_INFINITY;
-        Node curr = nodes.remove(i);
-
-//      for (int j = i + 1; j < nodes.size(); j++) {
-//        Node node = nodes.get(j);
-        for (Node node : nodes) {
-
-          double dist = curr.getNorm(node);
-
-          if (dist < shortestDistance && !curr.getConnections().contains(node)) {
-            closestNeighbor = node;
-            shortestDistance = dist;
-          }
-
-        }
-        nodes.add(i, curr);
-        curr.getConnections().add(closestNeighbor);
-        closestNeighbor.getConnections().add(curr);
-
-      }
-      maxConnections = nodes.stream().max(Comparator.comparingInt(o -> o.getConnections().size()))
-          .get().getConnections().size();
-
-      minConnections = nodes.stream().min(Comparator.comparingInt(o -> o.getConnections().size()))
-          .get().getConnections().size();
-
-
-      nodes.sort(Comparator.comparingInt(value -> value.getConnections().size()));
-//      Collections.reverse(nodes);
-
+  public void update() {
+    running = true;
+    List<Callable<Void>> tasks = new LinkedList<>();
+    for (Node node : nodes) {
+      node.reset();
+      node.update();
     }
 
+    for (int i = 0; i < nodes.size(); i++) {
+      Node curr = nodes.remove(i);
+      curr.getClosestNeighbors().addAll(nodes);
+      nodes.add(i, curr);
+    }
 
+    State state = new State();
+    for (Node node : nodes) {
+      tasks.add(() -> {
+        node.getClosestNeighbors().sort(Comparator.comparingDouble(node::getNorm));
+        for (int p = 0; p < Vars.instance().getConnections(); p++) {
+          Node n = node.getClosestNeighbors().get(p);
+          n.getConnections().add(node);
+          node.getConnections().add(n);
+        }
+        return null;
+      });
+    }
+    try {
+      List<Future<Void>> edges = executors.invokeAll(tasks);
+    } catch (InterruptedException ignored) {
+    }
+
+    for (Node node : nodes) {
+      for (Node connection : node.getConnections()) {
+        Edge edge = new Edge(node, connection);
+        state.getEdges().add(edge);
+      }
+      state.getVertices().add(new Vertex(node));
+    }
+    maxConnections = nodes.stream().max(Comparator.comparingInt(o -> o.getConnections().size()))
+        .get().getConnections().size();
+
+    minConnections = nodes.stream().min(Comparator.comparingInt(o -> o.getConnections().size()))
+        .get().getConnections().size();
+//      nodes.sort(Comparator.comparingInt(value -> value.getConnections().size()));
+    state.getEdges().sort(Comparator.comparing(Edge::getStartConnectionSize));
+    currentState = state;
+    tasks.clear();
   }
 }
