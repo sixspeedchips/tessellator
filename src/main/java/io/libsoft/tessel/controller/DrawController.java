@@ -2,19 +2,19 @@ package io.libsoft.tessel.controller;
 
 
 import io.libsoft.tessel.model.Graph;
-import io.libsoft.tessel.util.Vars;
-import io.libsoft.tessel.view.CannyViewer;
-import io.libsoft.tessel.view.ModelViewer;
+import io.libsoft.tessel.util.Props;
+import io.libsoft.tessel.view.NodeViewer;
 import javafx.animation.AnimationTimer;
 import javafx.fxml.FXML;
+import javafx.scene.control.Button;
 
 public class DrawController {
 
   @FXML
-  public ModelViewer modelViewer;
-
+  public NodeViewer nodeViewer;
   @FXML
-  public CannyViewer cannyViewer;
+  public Button increment;
+
 
   private GFXUpdater updater;
   private boolean running;
@@ -22,11 +22,15 @@ public class DrawController {
   @FXML
   private void initialize() {
 
-    Graph graph = Graph.randomNodes(Vars.instance().getNodes());
+
+    Graph graph = Graph.randomNodes(Props.get().getNodes());
     updater = new GFXUpdater();
-    modelViewer.setGraph(graph);
+    nodeViewer.setGraph(graph);
     updater.start();
-    graph.start();
+    increment.setDefaultButton(true);
+    increment.setOnAction(event -> {
+      graph.start();
+    });
 
   }
 
@@ -41,7 +45,7 @@ public class DrawController {
   }
 
   private void updateView() {
-    modelViewer.draw();
+    nodeViewer.showTriangle();
   }
 
 

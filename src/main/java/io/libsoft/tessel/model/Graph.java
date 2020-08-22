@@ -1,7 +1,10 @@
 package io.libsoft.tessel.model;
 
-import io.libsoft.tessel.util.Vars;
+import io.libsoft.tessel.util.Props;
+import io.libsoft.tessel.view.entity.Line;
+import io.libsoft.tessel.view.entity.Vertex;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
@@ -15,34 +18,60 @@ import lombok.Data;
 @Data
 public class Graph {
 
-  private static final double BOUNDS = 600;
   private static final Random random = new Random();
   private List<Node> nodes = new LinkedList<>();
+  private List<Node> processedNodes = new LinkedList<>();
+  private List<Triangle> triangles = new LinkedList<>();
   private int maxConnections;
   private int minConnections;
   private ExecutorService executors = Executors.newFixedThreadPool(5);
   private ScheduledExecutorService es = Executors.newScheduledThreadPool(1);
 
+
   private State currentState;
   private boolean running;
+  private int index;
 
-  public static Graph randomNodes(int num) {
-    Graph graph = new Graph();
-    for (int i = 0; i < num; i++) {
-      double x = (random.nextGaussian() * Vars.instance().getBounds() / 7) + Vars.instance().getBounds() / 2;
-      double y = (random.nextGaussian() * Vars.instance().getBounds() / 7) + Vars.instance().getBounds() / 2;
-      graph.getNodes().add(new Node(x, y));
-    }
 
-    return graph;
-  }
+
 
   public void start() {
-//    es.scheduleAtFixedRate(this::update, 0, 16, TimeUnit.MILLISECONDS);
-    es.submit(this::update);
+    es.submit(() -> bowyerWatson(nodes.get(index++)));
   }
 
-  public void update() {
+  public void bowyerWatson(Node node) {
+    processedNodes.add(node);
+
+    List<Triangle> badTriangles = new LinkedList<>();
+    badTriangles.clear();
+    for (Triangle triangle : triangles) {
+      boolean contains = triangle.containsNode(node);
+      System.out.println(contains);
+      if (contains) {
+        badTriangles.add(triangle);
+      }
+    }
+    System.out.println("\n\n\n");
+    HashSet<Edge> edgeList = new HashSet<>();
+    Triangle curr;
+
+    for (int i = 0; i < badTriangles.size(); i++) {
+      curr = badTriangles.remove(i);
+      for (Edge edge : curr.getEdges()) {
+        edgeList.add(edge);
+      }
+      badTriangles.add(i, curr);
+    }
+    triangles.removeAll(badTriangles);
+    triangles.addAll(Triangle.fromPolygon(edgeList, node));
+
+    State state = new State();
+    state.addNodes(processedNodes);
+    state.addTriangles(triangles);
+    currentState = state;
+  }
+
+  public void link() {
     running = true;
     List<Callable<Void>> tasks = new LinkedList<>();
     for (Node node : nodes) {
@@ -60,7 +89,7 @@ public class Graph {
     for (Node node : nodes) {
       tasks.add(() -> {
         node.getClosestNeighbors().sort(Comparator.comparingDouble(node::getNorm));
-        for (int p = 0; p < Vars.instance().getConnections(); p++) {
+        for (int p = 0; p < Props.get().getConnections(); p++) {
           Node n = node.getClosestNeighbors().get(p);
           n.getConnections().add(node);
           node.getConnections().add(n);
@@ -75,8 +104,8 @@ public class Graph {
 
     for (Node node : nodes) {
       for (Node connection : node.getConnections()) {
-        Edge edge = new Edge(node, connection);
-        state.getEdges().add(edge);
+        Line LIne = new Line(node, connection);
+        state.getLines().add(LIne);
       }
       state.getVertices().add(new Vertex(node));
     }
@@ -85,9 +114,26 @@ public class Graph {
 
     minConnections = nodes.stream().min(Comparator.comparingInt(o -> o.getConnections().size()))
         .get().getConnections().size();
-//      nodes.sort(Comparator.comparingInt(value -> value.getConnections().size()));
-    state.getEdges().sort(Comparator.comparing(Edge::getStartConnectionSize));
+    state.getLines().sort(Comparator.comparing(Line::getStartConnectionSize));
     currentState = state;
     tasks.clear();
+  }
+
+
+
+  public static Graph randomNodes(int num) {
+    Graph graph = new Graph();
+    graph.currentState = new State();
+    for (int i = 0; i < num; i++) {
+      double x = (random.nextGaussian() * Props.get().getBounds() / 7) + Props.get().getBounds() / 2;
+      double y = (random.nextGaussian() * Props.get().getBounds() / 7) + Props.get().getBounds() / 2;
+      Node n = new Node(x, y);
+      graph.nodes.add(n);
+      graph.currentState.getVertices().add(new Vertex(n));
+    }
+    Triangle boundingTriangle = Triangle.bounding();
+    graph.triangles.add(boundingTriangle);
+    graph.currentState.getTriangles().add(boundingTriangle);
+    return graph;
   }
 }

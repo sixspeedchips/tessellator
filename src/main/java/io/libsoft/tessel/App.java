@@ -14,6 +14,12 @@ public class App extends Application {
   private static final String LAYOUT_RESOURCE = "layout.fxml";
   private DrawController controller;
 
+
+
+  static {
+    nu.pattern.OpenCV.loadShared();
+  }
+
   public static void main(String[] args) {
 
     launch(args);
