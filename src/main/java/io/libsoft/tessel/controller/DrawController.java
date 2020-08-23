@@ -22,15 +22,15 @@ public class DrawController {
   @FXML
   private void initialize() {
 
-
     Graph graph = Graph.randomNodes(Props.get().getNodes());
     updater = new GFXUpdater();
     nodeViewer.setGraph(graph);
     updater.start();
+    graph.start();
     increment.setDefaultButton(true);
-    increment.setOnAction(event -> {
-      graph.start();
-    });
+//    increment.setOnAction(event -> {
+//      graph.start();
+//    });
 
   }
 

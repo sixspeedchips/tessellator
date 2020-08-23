@@ -1,6 +1,7 @@
 package io.libsoft.tessel.model;
 
 import io.libsoft.tessel.util.Props;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -23,9 +24,6 @@ public class Triangle {
   private final HashSet<Node> nodes = new HashSet<Node>() {
     @Override
     public boolean add(Node node) {
-      if (size() > 2) {
-        return false;
-      }
       super.add(node);
       if (size() == 3) {
         computeProperties();
@@ -51,14 +49,18 @@ public class Triangle {
     nodes.add(center);
   }
 
-  public static List<Triangle> fromPolygon(HashSet<Edge> polygon, Node node) {
+  public Triangle(Node... nodes) {
+    this.nodes.addAll(Arrays.asList(nodes));
+
+  }
+
+  public static List<Triangle> fromEdgeList(HashSet<Edge> polygon, Node node) {
     List<Triangle> newTriangles = new LinkedList<>();
     for (Edge edge : polygon) {
       newTriangles.add(new Triangle(edge, node));
     }
     return newTriangles;
   }
-
 
 
   public boolean ccw() {
@@ -203,5 +205,16 @@ public class Triangle {
   @Override
   public int hashCode() {
     return edges.hashCode();
+  }
+
+  public boolean sharesNode(Triangle other) {
+    for (Node node : nodes) {
+      if (other.containsNode(node)) {
+        return true;
+      }
+    }
+    return false;
+
+
   }
 }

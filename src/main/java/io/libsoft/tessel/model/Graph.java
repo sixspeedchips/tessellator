@@ -26,45 +26,89 @@ public class Graph {
   private int minConnections;
   private ExecutorService executors = Executors.newFixedThreadPool(5);
   private ScheduledExecutorService es = Executors.newScheduledThreadPool(1);
+  private Triangle boundingTriangle = Triangle.bounding();
 
 
   private State currentState;
   private boolean running;
   private int index;
 
+  public static Graph randomNodes(int num) {
+    Graph graph = new Graph();
+    graph.currentState = new State();
+    for (int i = 0; i < num; i++) {
+      double x = (random.nextGaussian() * Props.get().getBounds() / 7) + Props.get().getBounds() / 2;
+      double y = (random.nextGaussian() * Props.get().getBounds() / 7) + Props.get().getBounds() / 2;
+      Node n = new Node(x, y);
+      graph.nodes.add(n);
+      graph.currentState.getVertices().add(new Vertex(n));
+    }
 
-
+    return graph;
+  }
 
   public void start() {
-    es.submit(() -> bowyerWatson(nodes.get(index++)));
+    triangles.add(boundingTriangle);
+
+//    es.submit(() -> bowyerWatson(nodes.get(index++)));
+    es.submit(() -> {
+
+      for (Node node : nodes) {
+        bowyerWatson(node);
+      }
+
+      cleanUp();
+
+    });
   }
 
   public void bowyerWatson(Node node) {
     processedNodes.add(node);
 
     List<Triangle> badTriangles = new LinkedList<>();
-    badTriangles.clear();
+
     for (Triangle triangle : triangles) {
       boolean contains = triangle.containsNode(node);
-      System.out.println(contains);
       if (contains) {
         badTriangles.add(triangle);
       }
     }
-    System.out.println("\n\n\n");
     HashSet<Edge> edgeList = new HashSet<>();
     Triangle curr;
 
     for (int i = 0; i < badTriangles.size(); i++) {
       curr = badTriangles.remove(i);
       for (Edge edge : curr.getEdges()) {
-        edgeList.add(edge);
+        boolean unique = true;
+        for (Triangle badTriangle : badTriangles) {
+          if (badTriangle.containsEdge(edge)) {
+            unique = false;
+          }
+        }
+
+        if (unique) {
+          edgeList.add(edge);
+        }
       }
       badTriangles.add(i, curr);
     }
     triangles.removeAll(badTriangles);
-    triangles.addAll(Triangle.fromPolygon(edgeList, node));
+    triangles.addAll(Triangle.fromEdgeList(edgeList, node));
+    updateState();
+  }
 
+  private void cleanUp() {
+    List<Triangle> removeList = new LinkedList<>();
+    for (Triangle triangle : triangles) {
+      if (triangle.sharesNode(boundingTriangle)) {
+        removeList.add(triangle);
+      }
+    }
+    triangles.removeAll(removeList);
+    updateState();
+  }
+
+  private void updateState() {
     State state = new State();
     state.addNodes(processedNodes);
     state.addTriangles(triangles);
@@ -117,23 +161,5 @@ public class Graph {
     state.getLines().sort(Comparator.comparing(Line::getStartConnectionSize));
     currentState = state;
     tasks.clear();
-  }
-
-
-
-  public static Graph randomNodes(int num) {
-    Graph graph = new Graph();
-    graph.currentState = new State();
-    for (int i = 0; i < num; i++) {
-      double x = (random.nextGaussian() * Props.get().getBounds() / 7) + Props.get().getBounds() / 2;
-      double y = (random.nextGaussian() * Props.get().getBounds() / 7) + Props.get().getBounds() / 2;
-      Node n = new Node(x, y);
-      graph.nodes.add(n);
-      graph.currentState.getVertices().add(new Vertex(n));
-    }
-    Triangle boundingTriangle = Triangle.bounding();
-    graph.triangles.add(boundingTriangle);
-    graph.currentState.getTriangles().add(boundingTriangle);
-    return graph;
   }
 }
